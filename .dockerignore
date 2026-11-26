@@ -1,0 +1,13 @@
+.git
+.env
+*.db
+__pycache__/
+*.pyc
+.pytest_cache/
+.venv/
+frontend/node_modules/
+frontend/dist/
+assets/
+ML Project.html
+ML_Project.ipynb
+Student Social Media And Mental Health Impact.csv
