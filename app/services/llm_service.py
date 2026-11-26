@@ -285,6 +285,8 @@ class LLMService:
                     clean_json = clean_json.split("```json")[1].split("```")[0].strip()
                 elif "```" in clean_json:
                     clean_json = clean_json.split("```")[1].split("```")[0].strip()
+                elif "{" in clean_json and "}" in clean_json:
+                    clean_json = clean_json[clean_json.find("{"):clean_json.rfind("}") + 1]
 
                 parsed = json.loads(clean_json)
                 steps_data = [PlanStep(**s) for s in parsed.get("steps", [])]
