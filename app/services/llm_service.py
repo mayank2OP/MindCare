@@ -37,6 +37,7 @@ class LLMService:
         self.api_key = (settings.GEMINI_API_KEY or os.environ.get("GEMINI_API_KEY", "")).strip()
         self.groq_key = (settings.GROQ_API_KEY or os.environ.get("GROQ_API_KEY", "")).strip()
         self.client = None
+        self.last_groq_error: Optional[str] = None
 
         if HAS_GENAI and self.api_key:
             try:
@@ -85,10 +86,13 @@ class LLMService:
             with httpx.Client(timeout=15.0) as client:
                 res = client.post(url, headers=headers, json=payload)
                 if res.status_code == 200:
+                    self.last_groq_error = None
                     data = res.json()
                     return data["choices"][0]["message"]["content"].strip()
-                print(f"[LLMService] Groq API error {res.status_code}: {res.text[:200]}")
+                self.last_groq_error = f"HTTP {res.status_code}: {res.text[:200]}"
+                print(f"[LLMService] Groq API error {self.last_groq_error}")
         except Exception as e:
+            self.last_groq_error = str(e)
             print(f"[LLMService] Groq API call failed: {e}")
 
         return None

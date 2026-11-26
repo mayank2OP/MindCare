@@ -138,6 +138,7 @@ def health_check():
         "ml_model_loaded": predictor.model is not None,
         "rag_chunks_indexed": rag_engine.collection.count(),
         "llm_active": llm_active,
+        "last_groq_error": llm_service.last_groq_error,
     }
 
 
