@@ -224,6 +224,30 @@ class LLMService:
             provider_used="MindCare Grounded Synthesizer (Offline Precision)"
         )
 
+    def _has_llm(self) -> bool:
+        """Check if any LLM provider is available."""
+        return bool((HAS_GENAI and self.client) or self.groq_key)
+
+    def _llm_enhance_step(self, step: PlanStep, sources_context: str, score: float) -> PlanStep:
+        """Use LLM to rewrite a single step's action text — returns original on failure."""
+        system_prompt = (
+            "You are a concise, empathetic student wellness advisor. "
+            "Rewrite the following wellness recommendation to be more personalized, warm, and actionable. "
+            "Keep it to 2-3 sentences. Cite the given source naturally. Do NOT add markdown. "
+            "Return ONLY the rewritten text, nothing else."
+        )
+        user_prompt = (
+            f"Student score: {score}/10\n"
+            f"Step title: {step.title}\n"
+            f"Original: {step.action}\n"
+            f"Source to cite: {step.source}\n"
+            f"Context:\n{sources_context[:500]}"
+        )
+        enhanced = self._call_gemini(system_prompt, user_prompt) or self._call_groq(system_prompt, user_prompt)
+        if enhanced and len(enhanced) > 20:
+            step.action = enhanced
+        return step
+
     def generate_plan(
         self,
         score: float,
@@ -232,99 +256,30 @@ class LLMService:
         retrieved_sources: List[RetrievedSource]
     ) -> PlanResponse:
         """
-        Generates a 3-step action plan using Gemini / Groq if available, or offline fallback.
+        Generates a 3-step action plan.
+        Strategy: always build the structured plan using the reliable offline synthesizer,
+        then enhance each step with LLM if available. This guarantees valid structure
+        while still using Groq/Gemini for personalization.
         """
-        # Format context for LLM
-        risk_str = "\n".join([f"- {r.label}: {r.user_value} (SHAP impact: {r.impact:+0.2f} pts) — {r.description}" for r in risk_factors[:3]])
-        prot_str = "\n".join([f"- {p.label}: {p.user_value} (SHAP impact: {p.impact:+0.2f} pts)" for p in protective_factors[:2]])
+        # Build the reliable structured plan first
+        plan = self._offline_plan_synthesizer(score, risk_factors, protective_factors, retrieved_sources)
 
-        sources_context = "\n\n".join([
-            f"[Source {i+1}]: {s.source} — {s.title} ({s.category})\n{s.snippet}"
-            for i, s in enumerate(retrieved_sources)
-        ])
-
-        system_prompt = (
-            "You are MindCare AI, a supportive student wellness planner grounded in evidence-based guidelines.\n"
-            "Your task is to write a personalized 3-step action plan for a student based strictly on:\n"
-            "1. Their predicted mental health score (scale 0-10).\n"
-            "2. Their top risk factors identified by Machine Learning (SHAP explainability).\n"
-            "3. The retrieved clinical and university wellness documents.\n\n"
-            "RULES:\n"
-            "- Step 1 MUST address sleep or screen time habits.\n"
-            "- Step 2 MUST address study boundaries or digital distraction.\n"
-            "- Step 3 MUST address somatic stress regulation or physical movement.\n"
-            "- Every step MUST cite an exact source from the retrieved documents.\n"
-            "- Use short, kind, and practical language.\n"
-            "- NEVER diagnose illness or recommend medication.\n"
-            "- Return response strictly formatted as a JSON object with keys: 'headline', 'steps' (list of {step_number, title, action, target_driver, source})."
-        )
-
-        user_prompt = (
-            f"Student Predicted Score: {score}/10\n\n"
-            f"Top Risk Drivers (pulling score down):\n{risk_str}\n\n"
-            f"Top Protective Drivers:\n{prot_str}\n\n"
-            f"Retrieved Evidence-Based Guidelines:\n{sources_context}\n\n"
-            "Generate the JSON plan now."
-        )
-
-        # Attempt Gemini
-        raw_text = self._call_gemini(system_prompt, user_prompt)
-        provider = "Gemini"
-
-        # Attempt Groq if Gemini unavailable
-        if not raw_text:
-            raw_text = self._call_groq(system_prompt, user_prompt)
-            provider = "Groq"
-
-        # Parse LLM response if returned
-        if raw_text:
+        # If an LLM is available, enhance each step's text
+        if self._has_llm():
+            sources_context = "\n".join([
+                f"{s.source} — {s.title}: {s.snippet[:150]}"
+                for s in retrieved_sources[:4]
+            ])
             try:
-                # Strip markdown json blocks if present
-                clean_json = raw_text
-                if "```json" in clean_json:
-                    clean_json = clean_json.split("```json")[1].split("```")[0].strip()
-                elif "```" in clean_json:
-                    clean_json = clean_json.split("```")[1].split("```")[0].strip()
-                if "{" in clean_json:
-                    clean_json = clean_json[clean_json.find("{"):clean_json.rfind("}") + 1]
-
-                parsed = json.loads(clean_json)
-                raw_steps = parsed.get("steps", [])
-
-                # Normalize LLM step dicts: map common alternative key names
-                steps_data: List[PlanStep] = []
-                for i, s in enumerate(raw_steps):
-                    if not isinstance(s, dict):
-                        continue
-                    steps_data.append(PlanStep(
-                        step_number=s.get("step_number", i + 1),
-                        title=s.get("title", f"Step {i + 1}"),
-                        action=s.get("action", s.get("description", s.get("recommendation", ""))),
-                        target_driver=s.get("target_driver", s.get("driver", s.get("target", s.get("focus_area", "General Wellness")))),
-                        source=s.get("source", s.get("source_citation", s.get("citation", s.get("reference", "Research-Based Guidelines")))),
-                    ))
-
-                # Accept 1-5 steps (don't require exactly 3)
-                if steps_data:
-                    # Trim to first 3 if the model returned more
-                    steps_data = steps_data[:3]
-                    for idx, st in enumerate(steps_data):
-                        st.step_number = idx + 1
-                    return PlanResponse(
-                        predicted_score=score,
-                        headline=parsed.get("headline", f"Personalized Wellness Plan ({score}/10)"),
-                        steps=steps_data,
-                        retrieved_sources=retrieved_sources,
-                        safety_disclaimer=safety_guard.get_disclaimer(),
-                        provider_used=f"{provider} (Grounded RAG)"
-                    )
-                else:
-                    print(f"[LLMService] LLM returned 0 parseable steps, raw keys: {list(parsed.keys())}")
+                for step in plan.steps:
+                    self._llm_enhance_step(step, sources_context, score)
+                # Determine which provider actually worked
+                provider = "Gemini" if (HAS_GENAI and self.client) else "Groq"
+                plan.provider_used = f"{provider} (Grounded RAG)"
             except Exception as e:
-                print(f"[LLMService] Failed to parse LLM plan JSON: {e}\n  raw_text[:300]: {raw_text[:300]}")
+                print(f"[LLMService] LLM enhancement failed, keeping offline text: {e}")
 
-        # Reliable offline synthesizer fallback
-        return self._offline_plan_synthesizer(score, risk_factors, protective_factors, retrieved_sources)
+        return plan
 
     def chat(
         self,
