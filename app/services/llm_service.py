@@ -34,8 +34,8 @@ except ImportError:
 
 class LLMService:
     def __init__(self):
-        self.api_key = settings.GEMINI_API_KEY or os.environ.get("GEMINI_API_KEY", "")
-        self.groq_key = settings.GROQ_API_KEY or os.environ.get("GROQ_API_KEY", "")
+        self.api_key = (settings.GEMINI_API_KEY or os.environ.get("GEMINI_API_KEY", "")).strip()
+        self.groq_key = (settings.GROQ_API_KEY or os.environ.get("GROQ_API_KEY", "")).strip()
         self.client = None
 
         if HAS_GENAI and self.api_key:
@@ -87,6 +87,7 @@ class LLMService:
                 if res.status_code == 200:
                     data = res.json()
                     return data["choices"][0]["message"]["content"].strip()
+                print(f"[LLMService] Groq API error {res.status_code}: {res.text[:200]}")
         except Exception as e:
             print(f"[LLMService] Groq API call failed: {e}")
 

@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { api } from '../api';
+import ChatWidget from '../components/ChatWidget';
 
 const PLATFORMS = ['Instagram','YouTube','TikTok','WhatsApp','LinkedIn','Twitter','Snapchat','Facebook','LINE','KakaoTalk','VKontakte','WeChat'];
 const PURPOSES = ['Entertainment','Education','Networking','News'];
@@ -172,6 +173,11 @@ export default function Dashboard() {
             )}
           </>)}
         </div>
+      </div>
+
+      {/* ---- EMBEDDED AI WELLNESS CHAT ---- */}
+      <div className="mt-6">
+        <ChatWidget studentContext={form} compact />
       </div>
 
       <p className="text-center text-[11px] text-slate-400 mt-8 max-w-2xl mx-auto">

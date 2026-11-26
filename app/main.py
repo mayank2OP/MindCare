@@ -130,12 +130,14 @@ def get_knowledge_base_info():
 
 @app.get("/health", tags=["System"])
 def health_check():
+    llm_active = "gemini" if llm_service.client else ("groq" if llm_service.groq_key else "offline")
     return {
         "status": "healthy",
         "app": settings.APP_NAME,
         "version": settings.APP_VERSION,
         "ml_model_loaded": predictor.model is not None,
         "rag_chunks_indexed": rag_engine.collection.count(),
+        "llm_active": llm_active,
     }
 
 
