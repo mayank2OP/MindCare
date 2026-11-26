@@ -72,25 +72,32 @@ class LLMService:
             "Authorization": f"Bearer {self.groq_key}",
             "Content-Type": "application/json"
         }
-        payload = {
-            "model": settings.GROQ_MODEL or "llama-3.3-70b-versatile",
-            "messages": [
-                {"role": "system", "content": system_prompt},
-                {"role": "user", "content": user_prompt}
-            ],
-            "temperature": 0.3,
-            "max_tokens": 800
-        }
+        candidates = []
+        for m in [settings.GROQ_MODEL, "llama-3.1-8b-instant", "llama-3.3-70b-versatile", "openai/gpt-oss-20b"]:
+            if m and m not in candidates:
+                candidates.append(m)
 
         try:
             with httpx.Client(timeout=15.0) as client:
-                res = client.post(url, headers=headers, json=payload)
-                if res.status_code == 200:
-                    self.last_groq_error = None
-                    data = res.json()
-                    return data["choices"][0]["message"]["content"].strip()
-                self.last_groq_error = f"HTTP {res.status_code}: {res.text[:200]}"
-                print(f"[LLMService] Groq API error {self.last_groq_error}")
+                for model in candidates:
+                    payload = {
+                        "model": model,
+                        "messages": [
+                            {"role": "system", "content": system_prompt},
+                            {"role": "user", "content": user_prompt}
+                        ],
+                        "temperature": 0.3,
+                        "max_tokens": 800
+                    }
+                    res = client.post(url, headers=headers, json=payload)
+                    if res.status_code == 200:
+                        self.last_groq_error = None
+                        data = res.json()
+                        return data["choices"][0]["message"]["content"].strip()
+                    self.last_groq_error = f"HTTP {res.status_code}: {res.text[:200]}"
+                    print(f"[LLMService] Groq API error ({model}) {self.last_groq_error}")
+                    if res.status_code != 404:
+                        break
         except Exception as e:
             self.last_groq_error = str(e)
             print(f"[LLMService] Groq API call failed: {e}")
