@@ -301,21 +301,9 @@ class LLMService:
         """
         Conversational assistant grounded strictly in retrieved documents.
         Enforces crisis bypass and medical disclaimer.
+        Note: Crisis safety check is handled by the caller (main.py) before this method is invoked.
         """
-        # 1. Safety check first!
-        is_crisis, trigger = safety_guard.check_text(message)
-        if is_crisis:
-            crisis_alert = safety_guard.create_crisis_alert(trigger or "self-harm signal")
-            return ChatResponse(
-                reply=crisis_alert.message,
-                sources=[],
-                is_crisis=True,
-                safety_alert=crisis_alert,
-                medical_disclaimer=safety_guard.get_disclaimer(),
-                provider_used="Safety Guardrail Engine"
-            )
-
-        # 2. Build grounded context from RAG
+        # Build grounded context from RAG
         context_text = "\n\n".join([
             f"[Source {i+1}: {s.source} - {s.title}]\n{s.snippet}"
             for i, s in enumerate(retrieved_sources)

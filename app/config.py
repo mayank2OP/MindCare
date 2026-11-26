@@ -26,7 +26,7 @@ class Settings(BaseSettings):
     # Providers supported: 'gemini', 'groq', 'ollama', 'offline'
     LLM_PROVIDER: str = "gemini"
     GEMINI_API_KEY: str = ""
-    GEMINI_MODEL: str = "gemini-3.5-flash-lite"
+    GEMINI_MODEL: str = "gemini-2.5-flash"
 
     GROQ_API_KEY: str = ""
     GROQ_MODEL: str = "llama-3.3-70b-versatile"
@@ -44,6 +44,10 @@ class Settings(BaseSettings):
         "Other", "India", "USA", "Canada", "Australia",
         "UK", "Germany", "Mexico", "Turkey", "France"
     ]
+
+    # JWT Authentication
+    JWT_SECRET: str = "mindcare-dev-secret-change-in-production"
+    JWT_EXPIRY_HOURS: int = 24
 
     model_config = SettingsConfigDict(
         env_file=".env",

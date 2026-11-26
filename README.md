@@ -6,8 +6,10 @@
 [![SHAP](https://img.shields.io/badge/Explainability-Tree--SHAP-blueviolet)](https://github.com/shap/shap)
 [![ChromaDB](https://img.shields.io/badge/Vector--DB-ChromaDB-FF6F00)](https://www.trychroma.com/)
 [![Gemini](https://img.shields.io/badge/GenAI-Google%20Gemini%20%7C%20Groq-4285F4?logo=google&logoColor=white)](https://aistudio.google.com/)
-[![Tests](https://img.shields.io/badge/Tests-16%20Passed%20(100%25)-success?logo=pytest&logoColor=white)](https://docs.pytest.org/)
-[![RAG](https://img.shields.io/badge/Architecture-RAG%20%2B%20GenAI-teal)](https://github.com/ArpitRajput05/MindCare)
+[![React](https://img.shields.io/badge/Frontend-React%20%2B%20Tailwind-61DAFB?logo=react&logoColor=black)](https://react.dev/)
+[![Auth](https://img.shields.io/badge/Auth-JWT%20Bearer-purple)](https://jwt.io/)
+[![Tests](https://img.shields.io/badge/Tests-18%20Passed%20(100%25)-success?logo=pytest&logoColor=white)](https://docs.pytest.org/)
+[![RAG](https://img.shields.io/badge/Architecture-RAG%20%2B%20GenAI-teal)](https://github.com/mayank2OP/MindCare)
 
 **MindCare Signal** transforms student mental health analytics from static black-box predictions into a **closed-loop, explainable, and clinically grounded GenAI self-care intelligence system**.
 
@@ -143,21 +145,35 @@ MindCare/
 ├── app/
 │   ├── __init__.py
 │   ├── config.py                   # Pydantic BaseSettings & env configuration
-│   ├── main.py                     # Production FastAPI application & lifecycle
+│   ├── database.py                 # SQLite + SQLAlchemy session management
+│   ├── main.py                     # Production FastAPI application, SPA serving & lifecycle
+│   ├── auth/                       # JWT authentication (register, login, /auth/me, deps)
+│   │   ├── __init__.py
+│   │   ├── deps.py
+│   │   ├── models.py
+│   │   ├── routes.py
+│   │   ├── schemas.py
+│   │   └── utils.py
 │   ├── models/
 │   │   ├── __init__.py
 │   │   └── schemas.py              # Pydantic schemas (StudentData, SHAP, RAG, Chat, Safety)
-│   ├── services/
-│   │   ├── __init__.py
-│   │   ├── ml_predictor.py         # Random Forest model inference wrapper
-│   │   ├── explainer.py            # SHAP TreeExplainer feature attribution
-│   │   ├── rag_engine.py           # Document chunker, ChromaDB vector store & retriever
-│   │   ├── llm_service.py          # Gemini / Groq / Fallback plan generator & chat
-│   │   └── safety_guard.py         # Crisis detection & Tele-MANAS helpline router
-│   └── static/
-│       ├── index.html              # Responsive UI with score gauge, SHAP cards, plan, & chat
-│       ├── style.css               # Botanical paper aesthetic & accessible styling
-│       └── script.js               # Reactive frontend wiring API calls
+│   └── services/
+│       ├── __init__.py
+│       ├── ml_predictor.py         # Random Forest model inference wrapper
+│       ├── explainer.py            # SHAP TreeExplainer feature attribution
+│       ├── rag_engine.py           # Document chunker, ChromaDB vector store & retriever
+│       ├── llm_service.py          # Gemini / Groq / Fallback plan generator & chat
+│       └── safety_guard.py         # Crisis detection & Tele-MANAS helpline router
+├── frontend/                       # React + Vite + Tailwind CSS frontend
+│   ├── index.html
+│   ├── package.json
+│   ├── vite.config.js
+│   └── src/
+│       ├── App.jsx                 # Routes (/login, /register, /, /chat)
+│       ├── AuthContext.jsx         # JWT auth state & localStorage persistence
+│       ├── api.js                  # Authenticated fetch wrapper
+│       ├── components/             # Navbar & ProtectedRoute
+│       └── pages/                  # Login, Register, Dashboard, Chat
 ├── data/
 │   ├── knowledge_base/             # 25 curated authoritative text guides (WHO, Harvard, etc.)
 │   └── chroma_db/                  # Persisted vector database embeddings
@@ -165,15 +181,16 @@ MindCare/
 │   └── seed_knowledge_base.py      # Seed generator for knowledge base documents
 ├── tests/
 │   ├── __init__.py
-│   ├── test_predictor.py          # Unit tests for ML prediction
-│   ├── test_explainer.py          # Unit tests for SHAP feature attribution
-│   ├── test_rag.py                # Unit tests for RAG chunking & vector retrieval
-│   ├── test_safety.py             # Unit tests for crisis detection & helpline routing
-│   └── test_api.py                # End-to-end integration tests for FastAPI endpoints
+│   ├── conftest.py                 # Shared FastAPI TestClient & JWT auth fixtures
+│   ├── test_predictor.py           # Unit tests for ML prediction
+│   ├── test_explainer.py           # Unit tests for SHAP feature attribution
+│   ├── test_rag.py                 # Unit tests for RAG chunking & vector retrieval
+│   ├── test_safety.py              # Unit tests for crisis detection & helpline routing
+│   └── test_api.py                 # End-to-end integration tests for FastAPI & Auth
 ├── .env.example                    # Environment variable template
-├── .env                            # Local configuration (API keys)
-├── Mental_Health_Model.pkl          # Trained Random Forest pipeline
+├── Mental_Health_Model.pkl         # Trained Random Forest pipeline
 ├── requirements.txt                # Pinned production dependencies
+├── LICENSE                         # MIT License
 ├── run.bat                         # 1-click Windows launcher
 └── README.md                       # Comprehensive documentation & setup guide
 ```
@@ -191,7 +208,7 @@ Double-click **`run.bat`** (or execute `.\run.bat` in your terminal). It will in
 
 1. **Clone and enter the directory**:
    ```bash
-   git clone https://github.com/ArpitRajput05/MindCare.git
+   git clone https://github.com/mayank2OP/MindCare.git
    cd MindCare
    ```
 
@@ -216,7 +233,16 @@ Double-click **`run.bat`** (or execute `.\run.bat` in your terminal). It will in
    Add your free [Google Gemini API Key](https://aistudio.google.com/) or [Groq API Key](https://console.groq.com/).  
    *(Note: MindCare Signal includes a built-in offline precision synthesizer, so the app runs flawlessly even without an API key!)*
 
-4. **Start the server**:
+4. **Build the React frontend**:
+   ```bash
+   cd frontend
+   npm install
+   npm run build
+   cd ..
+   ```
+   *(For frontend hot-reload during development, run `npm run dev` in `frontend/` and visit `http://localhost:5173`.)*
+
+5. **Start the server**:
    ```bash
    python main.py
    ```
@@ -225,7 +251,7 @@ Double-click **`run.bat`** (or execute `.\run.bat` in your terminal). It will in
    uvicorn app.main:app --host 127.0.0.1 --port 8000 --reload
    ```
 
-5. **Visit the app**:
+6. **Visit the app**:
    - Web Application: [http://127.0.0.1:8000](http://127.0.0.1:8000)
    - Interactive Swagger API: [http://127.0.0.1:8000/docs](http://127.0.0.1:8000/docs)
 
@@ -264,15 +290,18 @@ tests/test_safety.py::test_safety_guard_helpline_payload PASSED          [100%]
 
 ## 📡 API Endpoints Overview
 
-| Method | Endpoint | Description |
-|---|---|---|
-| `GET` | `/` | Serves interactive web UI |
-| `GET` | `/health` | System readiness check, model status, RAG count |
-| `GET` | `/knowledge-base` | Metadata on all 25 documents, categories, & authorities |
-| `POST` | `/predict` | Random Forest score prediction (0–10) |
-| `POST` | `/explain` | SHAP feature impacts (risk & protective drivers) |
-| `POST` | `/generate-plan` | **End-to-End**: ML Score + SHAP Drivers + RAG + LLM 3-Step Plan |
-| `POST` | `/chat` | **Grounded Chatbot**: RAG Retrieval + Safety Guardrail + LLM Response |
+| Method | Endpoint | Auth | Description |
+|---|---|---|---|
+| `GET` | `/` | Public | Serves React SPA UI |
+| `GET` | `/health` | Public | System readiness check, model status, RAG count |
+| `GET` | `/knowledge-base` | Public | Metadata on all 25 documents, categories, & authorities |
+| `POST` | `/auth/register` | Public | Register user & receive JWT token |
+| `POST` | `/auth/login` | Public | Authenticate user & receive JWT token |
+| `GET` | `/auth/me` | JWT | Get current authenticated user |
+| `POST` | `/predict` | JWT | Random Forest score prediction (0–10) |
+| `POST` | `/explain` | JWT | SHAP feature impacts (risk & protective drivers) |
+| `POST` | `/generate-plan` | JWT | **End-to-End**: ML Score + SHAP Drivers + RAG + LLM 3-Step Plan |
+| `POST` | `/chat` | JWT | **Grounded Chatbot**: RAG Retrieval + Safety Guardrail + LLM Response |
 
 ### Sample Plan Generation Request:
 ```bash

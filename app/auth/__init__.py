@@ -1,0 +1,1 @@
+"""MindCare JWT Authentication Module"""

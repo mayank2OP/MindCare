@@ -49,14 +49,13 @@ Thumbs.db
 Desktop.ini
 .DS_Store
 
-# Environment & Secrets
-.env
-*.env.local
-
-# Testing & Cache
-.pytest_cache/
-.coverage
-htmlcov/
-
 # Local Vector DB data (knowledge base sources remain tracked)
 data/chroma_db/
+
+
+# Frontend
+frontend/node_modules/
+frontend/dist/
+
+# SQLite database
+*.db
