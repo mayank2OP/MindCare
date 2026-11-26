@@ -285,12 +285,31 @@ class LLMService:
                     clean_json = clean_json.split("```json")[1].split("```")[0].strip()
                 elif "```" in clean_json:
                     clean_json = clean_json.split("```")[1].split("```")[0].strip()
-                elif "{" in clean_json and "}" in clean_json:
+                if "{" in clean_json:
                     clean_json = clean_json[clean_json.find("{"):clean_json.rfind("}") + 1]
 
                 parsed = json.loads(clean_json)
-                steps_data = [PlanStep(**s) for s in parsed.get("steps", [])]
-                if len(steps_data) == 3:
+                raw_steps = parsed.get("steps", [])
+
+                # Normalize LLM step dicts: map common alternative key names
+                steps_data: List[PlanStep] = []
+                for i, s in enumerate(raw_steps):
+                    if not isinstance(s, dict):
+                        continue
+                    steps_data.append(PlanStep(
+                        step_number=s.get("step_number", i + 1),
+                        title=s.get("title", f"Step {i + 1}"),
+                        action=s.get("action", s.get("description", s.get("recommendation", ""))),
+                        target_driver=s.get("target_driver", s.get("driver", s.get("target", s.get("focus_area", "General Wellness")))),
+                        source=s.get("source", s.get("source_citation", s.get("citation", s.get("reference", "Research-Based Guidelines")))),
+                    ))
+
+                # Accept 1-5 steps (don't require exactly 3)
+                if steps_data:
+                    # Trim to first 3 if the model returned more
+                    steps_data = steps_data[:3]
+                    for idx, st in enumerate(steps_data):
+                        st.step_number = idx + 1
                     return PlanResponse(
                         predicted_score=score,
                         headline=parsed.get("headline", f"Personalized Wellness Plan ({score}/10)"),
@@ -299,8 +318,10 @@ class LLMService:
                         safety_disclaimer=safety_guard.get_disclaimer(),
                         provider_used=f"{provider} (Grounded RAG)"
                     )
+                else:
+                    print(f"[LLMService] LLM returned 0 parseable steps, raw keys: {list(parsed.keys())}")
             except Exception as e:
-                print(f"[LLMService] Failed to parse LLM plan JSON: {e}, using grounded fallback.")
+                print(f"[LLMService] Failed to parse LLM plan JSON: {e}\n  raw_text[:300]: {raw_text[:300]}")
 
         # Reliable offline synthesizer fallback
         return self._offline_plan_synthesizer(score, risk_factors, protective_factors, retrieved_sources)
