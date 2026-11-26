@@ -42,14 +42,16 @@ def test_knowledge_base_endpoint(client):
 # ---- Auth endpoints -----------------------------------------------------
 
 def test_auth_register_and_login(client):
+    import uuid
+    suffix = uuid.uuid4().hex[:8]
     res = client.post("/auth/register", json={
-        "username": "authtest", "email": "auth@test.com", "password": "pass123",
+        "username": f"authtest_{suffix}", "email": f"auth_{suffix}@test.com", "password": "pass123",
     })
     assert res.status_code == 200
     assert "access_token" in res.json()
 
     res = client.post("/auth/login", json={
-        "username": "authtest", "password": "pass123",
+        "username": f"authtest_{suffix}", "password": "pass123",
     })
     assert res.status_code == 200
     assert "access_token" in res.json()

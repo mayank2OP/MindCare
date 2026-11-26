@@ -7,11 +7,19 @@ import os
 import glob
 from typing import List, Dict, Any
 from pathlib import Path
-import chromadb
-from chromadb.utils import embedding_functions
 
 from app.config import settings
 from app.models.schemas import RetrievedSource
+
+
+class _LightweightCollection:
+    """Minimal collection shim exposing .count() for lightweight TF-IDF mode."""
+
+    def __init__(self, count_val: int):
+        self._count = count_val
+
+    def count(self) -> int:
+        return self._count
 
 
 class RAGEngine:
@@ -19,6 +27,15 @@ class RAGEngine:
 
     def __init__(self):
         self.kb_dir = Path(settings.KNOWLEDGE_BASE_DIR)
+        self.lightweight = settings.LIGHTWEIGHT_RAG
+
+        if self.lightweight:
+            self._init_lightweight()
+            return
+
+        import chromadb
+        from chromadb.utils import embedding_functions
+
         self.chroma_dir = Path(settings.CHROMA_DIR)
         self.chroma_dir.mkdir(parents=True, exist_ok=True)
 
@@ -39,6 +56,39 @@ class RAGEngine:
 
         # Automatically index knowledge base if collection is empty
         self._ensure_indexed()
+
+    def _init_lightweight(self):
+        """Low-memory TF-IDF retriever using scikit-learn (fits comfortably in 512MB RAM)."""
+        from sklearn.feature_extraction.text import TfidfVectorizer
+
+        self._ids: List[str] = []
+        self._docs: List[str] = []
+        self._metas: List[Dict[str, Any]] = []
+
+        for doc_path in sorted(self.kb_dir.glob("*.txt")):
+            parsed = self._parse_document(doc_path)
+            meta = parsed["metadata"]
+            chunks = self._chunk_text(
+                parsed["text"],
+                max_chars=settings.CHUNK_SIZE,
+                overlap=settings.CHUNK_OVERLAP,
+            )
+            for idx, chunk in enumerate(chunks):
+                self._ids.append(f"{doc_path.stem}_chunk_{idx}")
+                self._docs.append(chunk)
+                self._metas.append({
+                    "title": meta["title"],
+                    "source": meta["source"],
+                    "category": meta["category"],
+                    "filename": meta["filename"],
+                    "chunk_index": idx,
+                })
+
+        self._vectorizer = TfidfVectorizer(stop_words="english")
+        self._tfidf_matrix = (
+            self._vectorizer.fit_transform(self._docs) if self._docs else None
+        )
+        self.collection = _LightweightCollection(len(self._docs))
 
     def _parse_document(self, filepath: Path) -> Dict[str, Any]:
         with open(filepath, "r", encoding="utf-8") as f:
@@ -135,6 +185,26 @@ class RAGEngine:
         """
         if not query.strip():
             return []
+
+        if self.lightweight:
+            if not self._docs or self._tfidf_matrix is None:
+                return []
+            from sklearn.metrics.pairwise import cosine_similarity
+
+            q_vec = self._vectorizer.transform([query])
+            sims = cosine_similarity(q_vec, self._tfidf_matrix).flatten()
+            top_indices = sims.argsort()[::-1][:top_k]
+            return [
+                RetrievedSource(
+                    doc_id=self._ids[i],
+                    title=self._metas[i].get("title", "Wellbeing Guide"),
+                    source=self._metas[i].get("source", "Health Guideline"),
+                    category=self._metas[i].get("category", "General"),
+                    snippet=self._docs[i],
+                    relevance_score=round(float(sims[i]), 3),
+                )
+                for i in top_indices
+            ]
 
         results = self.collection.query(
             query_texts=[query],

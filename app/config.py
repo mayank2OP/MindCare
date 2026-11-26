@@ -35,6 +35,7 @@ class Settings(BaseSettings):
     OLLAMA_MODEL: str = "llama3"
 
     # RAG Settings
+    LIGHTWEIGHT_RAG: bool = False
     CHUNK_SIZE: int = 500
     CHUNK_OVERLAP: int = 50
     TOP_K_CHUNKS: int = 4
