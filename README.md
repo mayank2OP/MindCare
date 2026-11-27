@@ -10,8 +10,12 @@
 [![Auth](https://img.shields.io/badge/Auth-JWT%20Bearer-purple)](https://jwt.io/)
 [![Tests](https://img.shields.io/badge/Tests-18%20Passed%20(100%25)-success?logo=pytest&logoColor=white)](https://docs.pytest.org/)
 [![RAG](https://img.shields.io/badge/Architecture-RAG%20%2B%20GenAI-teal)](https://github.com/mayank2OP/MindCare)
+[![Live Demo](https://img.shields.io/badge/Live%20Demo-Render-46E3B7?logo=render&logoColor=white)](https://mindcare-signal.onrender.com/)
 
 **MindCare Signal** transforms student mental health analytics from static black-box predictions into a **closed-loop, explainable, and clinically grounded GenAI self-care intelligence system**.
+
+> **🌐 Live Deployment:** Try the live application at **[https://mindcare-signal.onrender.com/](https://mindcare-signal.onrender.com/)** (API Docs: [`/docs`](https://mindcare-signal.onrender.com/docs)).  
+> *Note: Hosted on Render's free tier, so the first request after inactivity may take ~30–60 seconds to spin up.*
 
 Traditional mental health apps either output an unexplained number (e.g., `4.2/10`) or use generic LLMs prone to medical hallucination. MindCare Signal bridges this gap: it predicts the student's score with a Random Forest model, computes exact feature attributions via **SHAP**, searches a curated **RAG knowledge base** of 25 authoritative health guides (WHO, Harvard, Stanford, CDC, NHS), and uses **Google Gemini / Groq** to synthesize a personalized, source-cited 3-step action plan and grounded chatbot.
 
@@ -188,7 +192,9 @@ MindCare/
 │   ├── test_safety.py              # Unit tests for crisis detection & helpline routing
 │   └── test_api.py                 # End-to-end integration tests for FastAPI & Auth
 ├── .env.example                    # Environment variable template
+├── Dockerfile                      # Multi-stage Docker build (React + FastAPI)
 ├── Mental_Health_Model.pkl         # Trained Random Forest pipeline
+├── render.yaml                     # Render Blueprint deployment config
 ├── requirements.txt                # Pinned production dependencies
 ├── LICENSE                         # MIT License
 ├── run.bat                         # 1-click Windows launcher
@@ -254,6 +260,22 @@ Double-click **`run.bat`** (or execute `.\run.bat` in your terminal). It will in
 6. **Visit the app**:
    - Web Application: [http://127.0.0.1:8000](http://127.0.0.1:8000)
    - Interactive Swagger API: [http://127.0.0.1:8000/docs](http://127.0.0.1:8000/docs)
+
+---
+
+### Option 3: Docker & Render Deployment
+
+The repository includes a multi-stage [`Dockerfile`](Dockerfile) (building the React frontend with Node 20 and serving it via FastAPI on Python 3.12) and a [`render.yaml`](render.yaml) Blueprint:
+
+```bash
+# Build and run locally with Docker
+docker build -t mindcare-signal .
+docker run -p 8000:8000 --env-file .env mindcare-signal
+```
+
+For Render, `render.yaml` configures:
+- **Health Check:** `/health`
+- **Environment Variables:** `JWT_SECRET` (auto-generated), `LIGHTWEIGHT_RAG=true`, `LLM_PROVIDER=gemini`, and optional `GEMINI_API_KEY` / `GROQ_API_KEY`.
 
 ---
 
